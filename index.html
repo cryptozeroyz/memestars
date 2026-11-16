@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glow 星级评级 · Memecoin 自动评分工具</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d333f;
+    --text:#e6edf3; --muted:#8b949e; --accent:#f0b429; --accent2:#58a6ff;
+    --green:#3fb950; --red:#f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.6;padding:24px 16px 80px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{text-align:center;margin-bottom:28px}
+  header h1{font-size:26px;letter-spacing:1px}
+  header h1 .star{color:var(--accent)}
+  header p{color:var(--muted);font-size:13px;margin-top:6px}
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:20px}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:16px;margin-bottom:4px;color:var(--accent2)}
+  .card h2 .weight{float:right;font-size:13px;color:var(--accent);font-weight:600}
+  .hint{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  label.field{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  input[type=text],input[type=number],select{
+    width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    color:var(--text);padding:8px 10px;font-size:14px;outline:none}
+  input:focus,select:focus{border-color:var(--accent2)}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .row .name{flex:1;font-size:14px}
+  .row .sub{font-size:12px;color:var(--muted)}
+  .slider-row{display:flex;align-items:center;gap:10px}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .val{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+  .check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--red);white-space:nowrap}
+  .check input{accent-color:var(--red);width:16px;height:16px}
+  .score-line{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);
+    display:flex;justify-content:space-between;align-items:center;font-size:14px}
+  .score-line b{font-size:20px;color:var(--accent)}
+  .warn{color:var(--accent);font-size:12px;margin-top:6px}
+  /* 结果面板 */
+  .result{position:sticky;top:20px}
+  .stars-big{font-size:44px;text-align:center;letter-spacing:6px;color:var(--accent);margin:8px 0 2px;min-height:60px}
+  .stars-big.none{color:var(--muted);font-size:24px;letter-spacing:0}
+  .verdict{text-align:center;font-size:13px;color:var(--muted);margin-bottom:14px}
+  .s-bar{text-align:center;margin-bottom:16px}
+  .s-bar .num{font-size:34px;font-weight:700;color:var(--accent2)}
+  .s-bar .lbl{font-size:12px;color:var(--muted)}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border)}
+  .kv span:last-child{color:var(--accent2);font-weight:600}
+  .gate{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;font-size:12.5px}
+  .gate input{margin-top:3px;accent-color:var(--green);width:16px;height:16px;flex:none}
+  .gate .t{flex:1;color:var(--muted)}
+  .gate b{color:var(--text)}
+  .btns{display:flex;gap:10px;margin-top:16px}
+  button{flex:1;background:var(--accent);border:none;color:#1a1a1a;font-weight:700;font-size:14px;
+    padding:10px;border-radius:8px;cursor:pointer}
+  button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  button:hover{filter:brightness(1.1)}
+  details{margin-top:24px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+  summary{cursor:pointer;font-weight:600;color:var(--accent2)}
+  details table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+  details th,details td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+  details th{background:var(--panel2);color:var(--accent)}
+  details h3{font-size:14px;color:var(--accent);margin:16px 0 4px}
+  .tag{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    padding:1px 8px;font-size:12px;color:var(--muted)}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;
+    padding:8px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="star">★</span> Glow 星级评级 · Memecoin 自动评分工具 <span class="star">★</span></h1>
+    <p>填写参数，实时生成 S 分与星级 ｜ 权重随分型自动切换（M 20/40/40，U 25/40/35，H 30/35/35）</p>
+  </header>
+
+  <div class="layout">
+    <!-- 左：输入区 -->
+    <div>
+      <!-- ① 基本信息 -->
+      <div class="card">
+        <h2>① 基本信息</h2>
+        <div class="grid2" style="margin-top:12px">
+          <div><label class="field">代币名称 / 符号</label><input type="text" id="name" placeholder="如 dark"></div>
+          <div><label class="field">链</label>
+            <select id="chain"><option>Solana</option><option>Ethereum</option><option>BSC</option><option>Base</option><option>其他</option></select></div>
+          <div style="grid-column:1/-1"><label class="field">CA（合约地址）</label><input type="text" id="ca" placeholder="合约地址"></div>
+          <div><label class="field">分型（决定权重）</label>
+            <select id="ftype">
+              <option value="M">M 纯Meme（20/40/40）</option>
+              <option value="U" selected>U 应用币（25/40/35）</option>
+              <option value="H">H 热点事件（30/35/35）</option>
+            </select></div>
+          <div><label class="field">评级时点</label><input type="text" id="rtime"></div>
+        </div>
+      </div>
+
+      <!-- ② D1 -->
+      <div class="card">
+        <h2>② D1 池龄（时间检验） <span class="weight" id="w1"></span></h2>
+        <div class="hint">刚达 24h 门槛＝基准 6 分；每穿越一次 30%＋ 回调未崩 ＋1；穿越 80% 回撤仍存活 ＋2；封顶 10</div>
+        <div class="grid2">
+          <div><label class="field">池龄（小时）</label><input type="number" id="age" min="0" value="24"></div>
+          <div><label class="field">30%＋ 回调未崩次数</label><input type="number" id="dips" min="0" max="4" value="0"></div>
+          <div><label class="field">穿越 80% 回撤仍存活</label>
+            <select id="survive"><option value="否" selected>否</option><option value="是">是（＋2）</option></select></div>
+        </div>
+        <div class="warn" id="ageWarn"></div>
+        <div class="score-line"><span>D1 得分（0–10）</span><b id="d1Score">—</b></div>
+      </div>
+
+      <!-- ③ D2 -->
+      <div class="card">
+        <h2>③ D2 市场与社区（只计算真实的人和真实的钱） <span class="weight" id="w2"></span></h2>
+        <div class="hint">四项各 0–2.5 分求和；发现刷量/对倒证据该项记 0 并触发封顶规则</div>
+        <div class="grid2" style="margin-bottom:14px">
+          <div><label class="field">持有人数</label><input type="number" id="holders" min="0" placeholder="如 8498"></div>
+          <div><label class="field">24h 交易量（$）</label><input type="number" id="vol" min="0" placeholder="如 1290000"></div>
+          <div><label class="field">X 粉丝数</label><input type="number" id="fans" min="0" placeholder="如 3000"></div>
+        </div>
+        <div id="d2items"></div>
+        <div class="score-line"><span>D2 得分（0–10）</span><b id="d2Score">—</b></div>
+      </div>
+
+      <!-- ④ D3 -->
+      <div class="card">
+        <h2>④ D3 叙事（Memecoin 的价值本体） <span class="weight" id="w3"></span></h2>
+        <div class="hint">一句话说不清＝低分；成立但静止＝中；在动 / 有催化剂＝高；具备持续性要素＝更高</div>
+        <div id="d3items"></div>
+        <div class="score-line"><span>D3 得分（0–10）</span><b id="d3Score">—</b></div>
+      </div>
+
+      <!-- ⑤ 硬门槛 -->
+      <div class="card">
+        <h2>⑤ 硬门槛逐项核对</h2>
+        <div class="hint">勾选「达标」表示该级硬门槛<b style="color:var(--text)">全部</b>满足（高级别会自动带上低级别）</div>
+        <div class="gate"><input type="checkbox" id="gate1"><span class="t"><b>★ 级硬门槛达标</b> — 池龄≥24h / 持有人≥1,500 / 24h量≥$3M / X粉≥500 等</span></div>
+        <div class="gate"><input type="checkbox" id="gate2"><span class="t"><b>★★ 级硬门槛达标</b> — 池龄≥72h / 持有人≥2,000 / 24h量≥$1M / X粉≥1,500 等</span></div>
+        <div class="gate"><input type="checkbox" id="gate3"><span class="t"><b>★★★ 级硬门槛达标</b> — 池龄≥7天 / 持有人≥5,000 / 24h量≥$500M / X粉≥5,000 等</span></div>
+      </div>
+    </div>
+
+    <!-- 右：结果区 -->
+    <div>
+      <div class="card result">
+        <h2>⑥ 最终评级结论</h2>
+        <div class="s-bar"><div class="num" id="sScore">0.00</div><div class="lbl">S 分（加权求和，满分 10）</div></div>
+        <div class="stars-big none" id="finalStars">—</div>
+        <div class="verdict" id="verdict">填写参数后自动出结果</div>
+        <div class="kv"><span>映射星级候选（按 S 分）</span><span id="mapped">—</span></div>
+        <div class="kv"><span>硬门槛达标星级</span><span id="gateStar">—</span></div>
+        <div class="kv"><span>封顶规则</span><span id="capRule">未触发</span></div>
+        <div class="kv" style="border-bottom:none">
+          <span>封顶星级上限（触发时生效）</span>
+          <select id="capLevel" style="width:auto;padding:4px 8px">
+            <option value="1" selected>★</option><option value="2">★★</option><option value="3">★★★</option>
+          </select>
+        </div>
+        <div class="btns">
+          <button id="copyBtn">复制评级结果</button>
+          <button class="ghost" id="resetBtn">重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 标准参考 -->
+  <details>
+    <summary>📖 评级标准参考（点击展开）</summary>
+    <h3>一、星级语义</h3>
+    <table>
+      <tr><th>星级</th><th>语义</th><th>米其林对应</th></tr>
+      <tr><td>★</td><td>值得关注 —— 活过第一天，有真实关注，叙事成立</td><td>同类出色，值得停车一尝</td></tr>
+      <tr><td>★★</td><td>高势能代币 —— 活过前三天，社区与成交放量，叙事在升温</td><td>值得绕路前往</td></tr>
+      <tr><td>★★★</td><td>蓝筹代币 —— 活过完整一周，规模领先，叙事成为符号</td><td>值得专程旅行</td></tr>
+    </table>
+    <h3>二、S 分 → 星级映射</h3>
+    <table>
+      <tr><th>S 分区间</th><th>映射星级候选</th><th>说明</th></tr>
+      <tr><td>S ＜ 4.0</td><td>不予评级</td><td>仅作观察记录，不发布任何星级内容</td></tr>
+      <tr><td>4.0 ≤ S ＜ 6.0</td><td>★ 候选</td><td>同时满足 ★ 全部硬门槛方可定级</td></tr>
+      <tr><td>6.0 ≤ S ＜ 8.0</td><td>★★ 候选</td><td>同时满足 ★★ 全部硬门槛方可定级</td></tr>
+      <tr><td>S ≥ 8.0</td><td>★★★ 候选</td><td>同时满足 ★★★ 全部硬门槛方可定级</td></tr>
+    </table>
+    <h3>三、通用分型硬门槛</h3>
+    <table>
+      <tr><th>维度</th><th>★ 值得关注</th><th>★★ 高势能代币</th><th>★★★ 蓝筹代币</th></tr>
+      <tr><td>① 池龄</td><td>≥24 小时</td><td>≥72 小时</td><td>≥7 天</td></tr>
+      <tr><td>② 市场与社区</td><td>持有人 ≥1,500；24h 交易量 ≥$3M；X 粉丝 ≥500 且互动真实无刷量</td><td>持有人 ≥2,000；24h 交易量 ≥$1M；X 粉丝 ≥1,500，已建立第二社群（TG/Discord）或出现跨社群讨论</td><td>持有人 ≥5,000；24h 交易量 ≥$500M；X 粉丝 ≥5,000，有持续自发 UGC</td></tr>
+      <tr><td>③ 叙事</td><td>归属明确、符号可辨识——一句话能说清"这是什么币"</td><td>处于上升期：提及量/讨论度环比增长，或有明确可预期催化剂</td><td>具备持续性：赛道首创 / 文化符号潜力 / 生态化路线，三者居其一</td></tr>
+    </table>
+    <h3>四、分型专项标准</h3>
+    <table>
+      <tr><th>分型</th><th>★</th><th>★★</th><th>★★★</th></tr>
+      <tr><td><b>M 纯Meme</b><br><span class="tag">叙事力＋社区力</span></td>
+        <td>符号辨识度高、易二创；社区真实活跃；持有人 ≥2,000 且自然增长；存在自发 UGC</td>
+        <td>池龄 ≥14 天；持有人 ≥5,000 且持续增长；传播跨出单一社群；经历过一次最少 50%＋ 回调未崩</td>
+        <td>池龄 ≥180 天；持有人 ≥50,000；一线 CEX 现货；穿越至少一次 80% 回撤后仍是赛道符号；已有大量衍生仿盘</td></tr>
+      <tr><td><b>U 应用币</b><br><span class="tag">产品＋存续力</span></td>
+        <td>有可验证的产品交付（不是白皮书）；代币在产品内有明确功能场景；池龄 ≥72 小时</td>
+        <td>产品有链上可验证的真实用户/交易量；收入与代币价值挂钩；池龄 ≥7 天；团队有连续交付记录</td>
+        <td>产品已成赛道基础设施；连续 ≥15 天交付且有产品验证；一线 CEX；池龄 ≥15 天</td></tr>
+      <tr><td><b>H 热点事件</b><br><span class="tag">时效＋真实性</span></td>
+        <td>热点事件真实可核验；符号具备传播性；池龄 ≥24 小时；持有人 ≥1,500 且官推互动真实</td>
+        <td>池龄 ≥72 小时；热点退潮后仍保有真实成交与社区活跃（讨论度衰减 ≤80%）；持有人 ≥3,000</td>
+        <td>一般不给予三星</td></tr>
+    </table>
+    <h3>五、封顶规则</h3>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">发现刷量/对倒证据的 D2 子项记 0 分，且最终星级不高于「封顶星级上限」（右侧可调，默认 ★）。硬指标有效期 7 天，软指标 72 小时。</p>
+    <h3>六、指标数据源</h3>
+    <table>
+      <tr><th>指标</th><th>首选数据源</th></tr>
+      <tr><td>池龄</td><td>Trading bot</td></tr>
+      <tr><td>持有人数 / 筹码分布</td><td>链上浏览器、GMGN</td></tr>
+      <tr><td>交易量 / 流动性</td><td>Dexscreener、池数据</td></tr>
+      <tr><td>X 互动真实性</td><td>官推近 10 条推文抽查：转评赞比、评论内容重复度、账号注册时间分布</td></tr>
+      <tr><td>UGC 自发性</td><td>X 关键词（CA / TICKER）搜索、TG/Discord 聊天记录</td></tr>
+      <tr><td>CEX / 数据平台收录</td><td>CEX 官网公告、CoinGecko/CMC 页面</td></tr>
+      <tr><td>产品交付（U 型）</td><td>产品实测、链上交互记录、代码仓库提交记录（GitHub）</td></tr>
+    </table>
+  </details>
+</div>
+<div id="toast">已复制到剪贴板</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// 权重表：分型 → [D1, D2, D3]
+const WEIGHTS = { M:[0.20,0.40,0.40], U:[0.25,0.40,0.35], H:[0.30,0.35,0.35] };
+
+// D2 子项
+const D2_ITEMS = [
+  {key:'d2a', name:'持有人数与增长曲线'},
+  {key:'d2b', name:'交易量与持有人匹配度'},
+  {key:'d2c', name:'X / TG 互动真实性'},
+  {key:'d2d', name:'UGC 自发性'},
+];
+// D3 子项
+const D3_ITEMS = [
+  {key:'d3a', name:'一句话复述测试', max:3, sub:'说不清＝低分，一句话能讲清＝高分'},
+  {key:'d3b', name:'讨论度环比趋势', max:3, sub:'静止＝低分，在动/有催化剂＝高分'},
+  {key:'d3c', name:'持续性要素 首创/符号/生态', max:4, sub:'具备持续性要素＝高分'},
+];
+
+// 渲染滑块
+function buildSlider(item, max, withWash){
+  const wrap = document.createElement('div');
+  wrap.className = 'row';
+  wrap.innerHTML = `
+    <div class="name">${item.name}${item.sub?`<div class="sub">${item.sub}</div>`:''}</div>
+    <div class="slider-row" style="flex:1.2">
+      <input type="range" id="${item.key}" min="0" max="${max}" step="0.5" value="0">
+      <span class="val" id="${item.key}Val">0</span>
+    </div>
+    ${withWash?`<label class="check"><input type="checkbox" id="${item.key}Wash">刷量/对倒</label>`:''}`;
+  return wrap;
+}
+D2_ITEMS.forEach(it => $('d2items').appendChild(buildSlider(it, 2.5, true)));
+D3_ITEMS.forEach(it => $('d3items').appendChild(buildSlider(it, it.max, false)));
+
+// 默认评级时点
+$('rtime').value = new Date().toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+
+function num(id){ const v = parseFloat($(id).value); return isNaN(v)?0:v; }
+function stars(n){ return n<=0 ? '不予评级' : '★'.repeat(n); }
+
+function calc(){
+  const type = $('ftype').value;
+  const [w1,w2,w3] = WEIGHTS[type];
+  $('w1').textContent = '权重 ' + (w1*100) + '%';
+  $('w2').textContent = '权重 ' + (w2*100) + '%';
+  $('w3').textContent = '权重 ' + (w3*100) + '%';
+
+  // D1
+  const age = num('age');
+  $('ageWarn').textContent = age < 24 ? '⚠ 未过 24h 第一道时间过滤' : (age < 72 ? '已过 24h' : '已过 72h 初步可信');
+  const d1 = Math.min(10, (age >= 24 ? 6 : 3) + Math.min(4,num('dips')) + ($('survive').value === '是' ? 2 : 0));
+  $('d1Score').textContent = d1;
+
+  // D2
+  let d2 = 0, washed = false;
+  D2_ITEMS.forEach(it => {
+    const v = num(it.key);
+    $(it.key+'Val').textContent = v;
+    if ($(it.key+'Wash').checked){ washed = true; }
+    else d2 += v;
+  });
+  $('d2Score').textContent = d2;
+
+  // D3
+  let d3 = 0;
+  D3_ITEMS.forEach(it => { const v = num(it.key); $(it.key+'Val').textContent = v; d3 += v; });
+  d3 = Math.min(10, d3);
+  $('d3Score').textContent = d3;
+
+  // S 分
+  const S = w1*d1 + w2*d2 + w3*d3;
+  $('sScore').textContent = S.toFixed(2);
+
+  // 映射候选
+  const mappedN = S < 4 ? 0 : (S < 6 ? 1 : (S < 8 ? 2 : 3));
+  $('mapped').textContent = S < 4 ? '不予评级' : stars(mappedN) + ' 候选';
+
+  // 硬门槛（层级：勾选高级自动带上低级）
+  if ($('gate3').checked){ $('gate2').checked = true; }
+  if ($('gate2').checked){ $('gate1').checked = true; }
+  if (!$('gate1').checked){ $('gate2').checked = false; $('gate3').checked = false; }
+  if (!$('gate2').checked){ $('gate3').checked = false; }
+  const gateN = $('gate1').checked ? ($('gate2').checked ? ($('gate3').checked ? 3 : 2) : 1) : 0;
+  $('gateStar').textContent = gateN === 0 ? '—（0）' : stars(gateN);
+
+  // 封顶规则
+  const capLevel = parseInt($('capLevel').value);
+  $('capRule').textContent = washed ? '已触发（存在刷量/对倒证据）' : '未触发';
+  $('capRule').style.color = washed ? 'var(--red)' : '';
+  const capN = washed ? capLevel : 3;
+
+  // 最终：S<4 不予评级；否则三者取低
+  let finalN;
+  if (S < 4) finalN = 0;
+  else finalN = Math.min(mappedN, gateN, capN);
+
+  const fs = $('finalStars');
+  if (finalN <= 0){
+    fs.textContent = '不予评级'; fs.className = 'stars-big none';
+    $('verdict').textContent = S < 4 ? 'S 分不足 4.0，仅作观察记录，不发布星级内容'
+                                     : '硬门槛未达标或触发封顶，暂不定级';
+  } else {
+    fs.textContent = '★'.repeat(finalN); fs.className = 'stars-big';
+    $('verdict').textContent = '映射星级、硬门槛、封顶规则三者取低后定级';
+  }
+  return {S, d1, d2, d3, finalN, mappedN, gateN, washed, type, w1, w2, w3};
+}
+
+// 复制结果
+$('copyBtn').addEventListener('click', () => {
+  const r = calc();
+  const lines = [
+    `【Glow 星级评级】${$('name').value || '（未命名）'}（${$('chain').value}）`,
+    `CA：${$('ca').value || '—'}`,
+    `分型：${$('ftype').selectedOptions[0].text}　评级时点：${$('rtime').value}`,
+    `────────────────`,
+    `D1 池龄（权重 ${r.w1*100}%）：${r.d1} 分（池龄 ${$('age').value}h，30%+回调未崩 ${$('dips').value} 次，80%回撤存活：${$('survive').value}）`,
+    `D2 市场与社区（权重 ${r.w2*100}%）：${r.d2} 分（持有人 ${$('holders').value||'—'}，24h量 $${$('vol').value||'—'}，X粉 ${$('fans').value||'—'}${r.washed?'，存在刷量/对倒证据':''}）`,
+    `D3 叙事（权重 ${r.w3*100}%）：${r.d3} 分`,
+    `────────────────`,
+    `S 分：${r.S.toFixed(2)} / 10`,
+    `映射候选：${r.S<4?'不予评级':stars(r.mappedN)+' 候选'}　硬门槛：${r.gateN===0?'—':stars(r.gateN)}${r.washed?`　封顶：≤${$('capLevel').selectedOptions[0].text}`:''}`,
+    `最终评级：${stars(r.finalN)}`,
+  ];
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
+    const t = $('toast'); t.style.opacity = 1; setTimeout(()=>t.style.opacity = 0, 1500);
+  });
+});
+
+// 重置
+$('resetBtn').addEventListener('click', () => {
+  document.querySelectorAll('input[type=range]').forEach(el => el.value = 0);
+  document.querySelectorAll('input[type=checkbox]').forEach(el => el.checked = false);
+  ['age'].forEach(id => $(id).value = 24);
+  $('dips').value = 0; $('survive').value = '否'; $('capLevel').value = 1;
+  calc();
+});
+
+// 所有输入实时联动
+document.querySelectorAll('input,select').forEach(el => el.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
